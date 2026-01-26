@@ -12,7 +12,7 @@ def initialize():
     with get_session() as db: # Get a connection to the database
         drop_all() # delete all tables
         create_db_and_tables() #recreate all tables
-        bob = User('bob', 'bob@mail.com', 'bobpass') # Create a new user (in memory)
+        bob = User(username = 'bob', email = 'bob@mail.com', password = 'bobpass') # Create a new user (in memory)
         db.add(bob) # Tell the database about this new data
         db.commit() # Tell the database persist the data
         db.refresh(bob) # Update the user (we use this to get the ID from the db)
