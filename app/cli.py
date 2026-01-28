@@ -2,13 +2,17 @@ import typer
 from app.database import create_db_and_tables, get_session, drop_all
 from app.models import User
 from fastapi import Depends
-from sqlmodel import select
+from sqlmodel import select, or_
 from sqlalchemy.exc import IntegrityError
+from typing import Annotated
 
 cli = typer.Typer()
 
 @cli.command()
 def initialize():
+    '''
+    Initialize the database and create user
+    '''
     with get_session() as db: # Get a connection to the database
         drop_all() # delete all tables
         create_db_and_tables() #recreate all tables
@@ -16,16 +20,16 @@ def initialize():
         db.add(bob) # Tell the database about this new data
         db.commit() # Tell the database persist the data
         db.refresh(bob) # Update the user (we use this to get the ID from the db)
-
-        john = User(username='john', email='john@gmail.com', password='johnpass')
-        db.add(john)
-        db.commit()
-        db.refresh(john)
-
         print("Database Initialized")
 
+
 @cli.command()
-def get_user(username:str):
+def get_user(
+    username: Annotated[str, typer.Argument(help="Username to be searched")]
+    ):
+    '''
+    Retrieve user by username and print
+    '''
     with get_session() as db: # Get a connection to the database
         user = db.exec(select(User).where(User.username == username)).first()
         if not user:
@@ -36,6 +40,9 @@ def get_user(username:str):
 
 @cli.command()
 def get_all_users():
+    '''
+    Retrieve all users
+    '''
     with get_session() as db:
         all_users = db.exec(select(User)).all()
         if not all_users:
@@ -46,7 +53,13 @@ def get_all_users():
    
 
 @cli.command()
-def change_email(username: str, new_email:str):
+def change_email(
+    username: Annotated[str, typer.Argument(help="User whose email is to be changed")],
+    new_email: Annotated[str, typer.Argument(help="New email")]
+    ):
+    '''
+    Update the email of an existing user
+    '''
     with get_session() as db:
         user = db.exec(select(User).where(User.username == username)).first()
         if not user:
@@ -60,7 +73,14 @@ def change_email(username: str, new_email:str):
             
    
 @cli.command()
-def create_user(new_username: str, new_email:str, new_password: str):
+def create_user(
+    new_username: Annotated[str, typer.Argument(help="Username for new user")],
+    new_email: Annotated[str,typer.Argument(help="Email for new user")],
+    new_password: Annotated[str, typer.Argument(help="Password for new user")]
+    ):
+    '''
+    Create new user and add to database
+    '''
     with get_session() as db:
         newUser = User(username=new_username, email=new_email, password=new_password)
         try:
@@ -77,7 +97,12 @@ def create_user(new_username: str, new_email:str, new_password: str):
 
 
 @cli.command()
-def delete_user(username: str):
+def delete_user(
+    username: Annotated[str, typer.Argument(help="Username of user to be deleted")]
+    ):
+    '''
+    Delete existing user
+    '''
     with get_session() as db:
         user = db.exec(select(User).where(User.username == username)).first()
         if not user:
@@ -86,6 +111,43 @@ def delete_user(username: str):
         db.delete(user)
         db.commit()
         print(f"Successfully deleted user {username}")
+
+
+@cli.command()
+def get_user_partial(
+    name: Annotated[str, typer.Argument(help="Partial username/email of user to retrieve")]
+    ):
+    '''
+    Retrieve user using partial match of username OR email
+    '''
+
+    with get_session() as db:
+        user = db.exec(select(User).where(
+            or_(
+                User.username.like(f"%{name}%"),
+                User.email.like(f"%{name}%")))).first()
+        if not user:
+            print("No matches found")
+            return
+        print(user)
+
+
+@cli.command()
+def get_range(
+    offset: Annotated[int, typer.Argument(help="Starting point")] = 0,
+    limit: Annotated[int, typer.Argument(help="Number of users to retrieve")] = 10
+ ):
+    '''
+    Retrieve first N users
+    '''
+    with get_session() as db:
+        users = db.exec(select(User).offset(offset).limit(limit)).all()
+        if not users:
+            print("No users found within range")
+            return
+        for user in users:
+            print(user)
+
 
 
 if __name__ == "__main__":
