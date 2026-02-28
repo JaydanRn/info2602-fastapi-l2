@@ -124,8 +124,8 @@ def get_user_partial(
     with get_session() as db:
         user = db.exec(select(User).where(
             or_(
-                User.username.like(f"%{name}%"),
-                User.email.like(f"%{name}%")))).first()
+                User.username.ilike(f"%{name}%"),
+                User.email.ilike(f"%{name}%")))).first()
         if not user:
             print("No matches found")
             return
